@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Points Revenue Analysis</title>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Points Revenue Analysis</h1>
+        <p class="mb-4">Copy your JSON data from  <a href="https://makerworld.com/api/v1/point-service/point-bill/my?offset=0&limit=10000000&filter=incomes" target="_blank" class="text-blue-500 underline">this link</a> (CTRL + A, then CTRL + C).</p>
+        <textarea id="jsonInput" class="w-full p-2 border border-gray-300 rounded mb-4" rows="10" placeholder="Paste your JSON here..."></textarea>
+        <div class="flex gap-4">
+            <button id="processButton" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Process JSON</button>
+            <a href="https://makerworld.com/en/@user_792884128" target="_blank" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Visit My Profile</a>
+        </div>
+
+        <div id="results" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Average Points</h2>
+            <table class="table-auto w-full bg-white rounded shadow mb-6">
+                <thead>
+                    <tr>
+                        <th class="border px-4 py-2">Metric</th>
+                        <th class="border px-4 py-2">Value</th>
+                    </tr>
+                </thead>
+                <tbody id="pointsTable"></tbody>
+            </table>
+
+            <h2 class="text-xl font-semibold mb-4">Exclusive Rate Revenue</h2>
+            <table class="table-auto w-full bg-white rounded shadow mb-6">
+                <thead>
+                    <tr>
+                        <th class="border px-4 py-2">Metric</th>
+                        <th class="border px-4 py-2">Value</th>
+                    </tr>
+                </thead>
+                <tbody id="exclusiveTable"></tbody>
+            </table>
+
+            <h2 class="text-xl font-semibold mb-4">Standard Rate Revenue</h2>
+            <table class="table-auto w-full bg-white rounded shadow">
+                <thead>
+                    <tr>
+                        <th class="border px-4 py-2">Metric</th>
+                        <th class="border px-4 py-2">Value</th>
+                    </tr>
+                </thead>
+                <tbody id="standardTable"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        const EXCLUSIVE_RATE = 0.066;
+        const STANDARD_RATE = 0.07633587786;
+
+        document.getElementById('processButton').addEventListener('click', () => {
+            const jsonInput = document.getElementById('jsonInput').value;
+            const resultsDiv = document.getElementById('results');
+            const pointsTable = document.getElementById('pointsTable');
+            const exclusiveTable = document.getElementById('exclusiveTable');
+            const standardTable = document.getElementById('standardTable');
+
+            try {
+                const data = JSON.parse(jsonInput);
+                const points = [];
+                const dates = [];
+
+                data.hits.forEach(item => {
+                    points.push(item.pointChange);
+                    dates.push(new Date(item.pointTime));
+                });
+
+                const daysActive = (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24) || 1;
+                const weeksActive = daysActive / 7;
+                const monthsActive = daysActive / 30;
+
+                const totalPoints = points.reduce((sum, val) => sum + val, 0);
+
+                const dailyAvg = totalPoints / daysActive;
+                const weeklyAvg = totalPoints / weeksActive;
+                const monthlyAvg = totalPoints / monthsActive;
+
+                const calculateRevenue = (avgPoints, rate) => avgPoints * rate;
+
+                const dailyRevenueExclusive = calculateRevenue(dailyAvg, EXCLUSIVE_RATE);
+                const weeklyRevenueExclusive = calculateRevenue(weeklyAvg, EXCLUSIVE_RATE);
+                const monthlyRevenueExclusive = calculateRevenue(monthlyAvg, EXCLUSIVE_RATE);
+
+                const dailyRevenueStandard = calculateRevenue(dailyAvg, STANDARD_RATE);
+                const weeklyRevenueStandard = calculateRevenue(weeklyAvg, STANDARD_RATE);
+                const monthlyRevenueStandard = calculateRevenue(monthlyAvg, STANDARD_RATE);
+
+                pointsTable.innerHTML = `
+                    <tr><td class="border px-4 py-2">Average Points Per Day</td><td class="border px-4 py-2">${dailyAvg.toFixed(2)}</td></tr>
+                    <tr><td class="border px-4 py-2">Average Points Per Week</td><td class="border px-4 py-2">${weeklyAvg.toFixed(2)}</td></tr>
+                    <tr><td class="border px-4 py-2">Average Points Per Month</td><td class="border px-4 py-2">${monthlyAvg.toFixed(2)}</td></tr>
+                `;
+
+                exclusiveTable.innerHTML = `
+                    <tr><td class="border px-4 py-2">Daily Revenue</td><td class="border px-4 py-2">${dailyRevenueExclusive.toFixed(2)} EUR</td></tr>
+                    <tr><td class="border px-4 py-2">Weekly Revenue</td><td class="border px-4 py-2">${weeklyRevenueExclusive.toFixed(2)} EUR</td></tr>
+                    <tr><td class="border px-4 py-2">Monthly Revenue</td><td class="border px-4 py-2">${monthlyRevenueExclusive.toFixed(2)} EUR</td></tr>
+                `;
+
+                standardTable.innerHTML = `
+                    <tr><td class="border px-4 py-2">Daily Revenue</td><td class="border px-4 py-2">${dailyRevenueStandard.toFixed(2)} EUR</td></tr>
+                    <tr><td class="border px-4 py-2">Weekly Revenue</td><td class="border px-4 py-2">${weeklyRevenueStandard.toFixed(2)} EUR</td></tr>
+                    <tr><td class="border px-4 py-2">Monthly Revenue</td><td class="border px-4 py-2">${monthlyRevenueStandard.toFixed(2)} EUR</td></tr>
+                `;
+
+                resultsDiv.classList.remove('hidden');
+            } catch (error) {
+                alert('Invalid JSON input. Please check your data.');
+            }
+        });
+    </script>
+</body>
+</html>
