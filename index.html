@@ -19,7 +19,8 @@
         <textarea id="jsonInput" class="w-full p-2 border border-gray-300 rounded mb-4" rows="10" placeholder="Paste your JSON here..."></textarea>
 
         <div id="results" class="mt-6 hidden">
-            <h2 class="text-xl font-semibold mb-4">Average Points</h2>
+            <h2 class="text-xl font-semibold mb-1">Average Points</h2>
+            <p id="averageDays" class="text-sm text-gray-600 mb-4"></p>
             <table class="table-auto w-full bg-white rounded shadow mb-6">
                 <thead>
                     <tr>
@@ -29,6 +30,8 @@
                 </thead>
                 <tbody id="pointsTable"></tbody>
             </table>
+
+            
 
             <h2 class="text-xl font-semibold mb-4">Exclusive Rate Revenue</h2>
             <table class="table-auto w-full bg-white rounded shadow mb-6">
@@ -64,6 +67,7 @@
             const pointsTable = document.getElementById('pointsTable');
             const exclusiveTable = document.getElementById('exclusiveTable');
             const standardTable = document.getElementById('standardTable');
+            const averageDays = document.getElementById('averageDays');
 
             try {
                 const data = JSON.parse(jsonInput);
@@ -100,6 +104,8 @@
                     <tr><td class="border px-4 py-2">Points Per Week</td><td class="border px-4 py-2">${weeklyAvg.toFixed(2)}</td></tr>
                     <tr><td class="border px-4 py-2">Points Per Month</td><td class="border px-4 py-2">${monthlyAvg.toFixed(2)}</td></tr>
                 `;
+
+                averageDays.innerText = `Calculated over ${daysActive.toFixed(0)} days.`;
 
                 exclusiveTable.innerHTML = `
                     <tr><td class="border px-4 py-2">Daily Revenue</td><td class="border px-4 py-2">${dailyRevenueExclusive.toFixed(2)} EUR</td></tr>
