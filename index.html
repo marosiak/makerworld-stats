@@ -15,44 +15,53 @@
             <span class="text-xs text-gray-500 block mt-1">Advertisement</span>
         </div>
     </div>
+
     <div class="container mx-auto p-4">
         <p class="mb-4">Copy your JSON data from <a href="https://makerworld.com/api/v1/point-service/point-bill/my?offset=0&limit=10000000&filter=incomes" target="_blank" class="text-blue-500 underline">this link</a> (CTRL + A, then CTRL + C).</p>
         <textarea id="jsonInput" class="w-full p-2 border border-gray-300 rounded mb-4" rows="10" placeholder="Paste your JSON here..."></textarea>
 
         <div id="results" class="mt-6 hidden">
-            <h2 class="text-xl font-semibold mb-1">Average Points</h2>
-            <p id="averageDays" class="text-sm text-gray-600 mb-4"></p>
-            <table class="table-auto w-full bg-white rounded shadow mb-6">
-                <thead>
-                    <tr>
-                        <th class="border px-4 py-2">Metric</th>
-                        <th class="border px-4 py-2">Value</th>
-                    </tr>
-                </thead>
-                <tbody id="pointsTable"></tbody>
-            </table>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                <div>
+                    <h2 class="text-xl font-semibold mb-2">Average Points</h2>
+                    <p id="averageDays" class="text-sm text-gray-600 mb-2"></p>
+                    <table class="table-auto w-full bg-white rounded shadow">
+                        <thead>
+                            <tr>
+                                <th class="border px-4 py-2">Metric</th>
+                                <th class="border px-4 py-2">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pointsTable"></tbody>
+                    </table>
+                </div>
 
-            <h2 class="text-xl font-semibold mb-4">Exclusive Rate Revenue</h2>
-            <table class="table-auto w-full bg-white rounded shadow mb-6">
-                <thead>
-                    <tr>
-                        <th class="border px-4 py-2">Metric</th>
-                        <th class="border px-4 py-2">Value</th>
-                    </tr>
-                </thead>
-                <tbody id="exclusiveTable"></tbody>
-            </table>
+                <div>
+                    <h2 class="text-xl font-semibold mb-9">Exclusive Rate Revenue</h2>
+                    <table class="table-auto w-full bg-white rounded shadow">
+                        <thead>
+                            <tr>
+                                <th class="border px-4 py-2">Metric</th>
+                                <th class="border px-4 py-2">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="exclusiveTable"></tbody>
+                    </table>
+                </div>
 
-            <h2 class="text-xl font-semibold mb-4">Standard Rate Revenue</h2>
-            <table class="table-auto w-full bg-white rounded shadow">
-                <thead>
-                    <tr>
-                        <th class="border px-4 py-2">Metric</th>
-                        <th class="border px-4 py-2">Value</th>
-                    </tr>
-                </thead>
-                <tbody id="standardTable"></tbody>
-            </table>
+                <div>
+                    <h2 class="text-xl font-semibold mb-9">Standard Rate Revenue</h2>
+                    <table class="table-auto w-full bg-white rounded shadow">
+                        <thead>
+                            <tr>
+                                <th class="border px-4 py-2">Metric</th>
+                                <th class="border px-4 py-2">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="standardTable"></tbody>
+                    </table>
+                </div>
+            </div>
 
             <div id="chartContainer" class="mt-8"></div>
         </div>
@@ -62,7 +71,6 @@
         const EXCLUSIVE_RATE = 0.066;
         const STANDARD_RATE = 0.07633587786;
 
-        // Group all pointChange entries by their date (YYYY-MM-DD)
         function groupByDay(data) {
             const dailySums = {};
             data.forEach(item => {
@@ -77,15 +85,12 @@
             return sortedKeys.map(k => ({ date: k, points: dailySums[k] }));
         }
 
-        // Instead of a fixed rolling window, we calculate the average
-        // from the start up to the current day, i.e. cumulative average
         function cumulativeAverages(daysData, rate) {
             let cumSum = 0;
             const result = [];
             for (let i = 0; i < daysData.length; i++) {
                 cumSum += daysData[i].points;
                 const avg = (cumSum / (i + 1)) * rate;
-                // dayIndex is simply (i+1) to show which day of activity it is
                 result.push({ dayIndex: i + 1, value: avg });
             }
             return result;
@@ -102,8 +107,6 @@
 
             try {
                 const data = JSON.parse(jsonInput);
-
-                // Gather data
                 const points = [];
                 const dates = [];
                 data.hits.forEach(item => {
@@ -111,7 +114,6 @@
                     dates.push(new Date(item.pointTime));
                 });
 
-                // Calculate total days, total points, daily/weekly/monthly averages
                 const daysActive = (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24) || 1;
                 const weeksActive = daysActive / 7;
                 const monthsActive = daysActive / 30;
@@ -130,7 +132,7 @@
                 const weeklyRevenueStandard = calcRev(weeklyAvg, STANDARD_RATE);
                 const monthlyRevenueStandard = calcRev(monthlyAvg, STANDARD_RATE);
 
-                // Display the summary tables
+                // Fill in the tables
                 pointsTable.innerHTML = `
                     <tr><td class="border px-4 py-2">Points per Day</td><td class="border px-4 py-2">${dailyAvg.toFixed(2)}</td></tr>
                     <tr><td class="border px-4 py-2">Points per Week</td><td class="border px-4 py-2">${weeklyAvg.toFixed(2)}</td></tr>
@@ -152,15 +154,13 @@
 
                 resultsDiv.classList.remove('hidden');
 
-                // Clear old chart, if any
+                // Clear old chart if present
                 while (chartContainer.firstChild) {
                     chartContainer.removeChild(chartContainer.firstChild);
                 }
 
                 // Prepare data for the chart
                 const dailyData = groupByDay(data.hits);
-
-                // Calculate cumulative averages (from start to current day)
                 const standardCumulative = cumulativeAverages(dailyData, STANDARD_RATE);
                 const exclusiveCumulative = cumulativeAverages(dailyData, EXCLUSIVE_RATE);
 
