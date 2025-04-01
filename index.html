@@ -20,15 +20,11 @@
         <p class="mb-4">Copy your JSON data from <a href="https://makerworld.com/api/v1/point-service/point-bill/my?offset=0&limit=10000000&filter=incomes" target="_blank" class="text-blue-500 underline">this link</a> (CTRL + A, then CTRL + C).</p>
         <textarea id="jsonInput" class="w-full p-2 border border-gray-300 rounded mb-4" rows="10" placeholder="Paste your JSON here..."></textarea>
 
-        <div class="flex space-x-4">
-            <button id="mainStatsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Main Stats</button>
-            <button id="modelStatsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">Per Model Stats</button>
-        </div>
-
-        <div id="results" class="mt-6 hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+        <div class="mt-6">
+            <h2 class="text-xl font-bold">Main Stats</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mt-4">
                 <div>
-                    <h2 class="text-xl font-semibold mb-2">Average Points</h2>
+                    <h3 class="text-lg font-semibold mb-2">Average Points</h3>
                     <p id="averageDays" class="text-sm text-gray-600 mb-2"></p>
                     <table class="table-auto w-full bg-white rounded shadow">
                         <thead>
@@ -41,7 +37,7 @@
                     </table>
                 </div>
                 <div>
-                    <h2 class="text-xl font-semibold mb-9">Exclusive Rate Revenue</h2>
+                    <h3 class="text-lg font-semibold mb-2">Exclusive Rate Revenue</h3>
                     <table class="table-auto w-full bg-white rounded shadow">
                         <thead>
                             <tr>
@@ -53,7 +49,7 @@
                     </table>
                 </div>
                 <div>
-                    <h2 class="text-xl font-semibold mb-9">Standard Rate Revenue</h2>
+                    <h3 class="text-lg font-semibold mb-2">Standard Rate Revenue</h3>
                     <table class="table-auto w-full bg-white rounded shadow">
                         <thead>
                             <tr>
@@ -68,8 +64,9 @@
             <div id="chartContainer" class="mt-8"></div>
         </div>
 
-        <div id="modelStats" class="mt-6 hidden">
-            <div class="mb-4">
+        <div class="mt-8">
+            <h2 class="text-xl font-bold">Per Model Stats</h2>
+            <div class="mt-4">
                 <label for="modelDropdown" class="font-semibold">Select a model:</label>
                 <select id="modelDropdown" class="ml-2 p-2 border border-gray-300 rounded"></select>
             </div>
@@ -192,18 +189,6 @@
             });
         }
 
-        function toggleSections(showMain) {
-            const resultsDiv = document.getElementById('results');
-            const modelStatsDiv = document.getElementById('modelStats');
-            if (showMain) {
-                resultsDiv.classList.remove('hidden');
-                modelStatsDiv.classList.add('hidden');
-            } else {
-                resultsDiv.classList.add('hidden');
-                modelStatsDiv.classList.remove('hidden');
-            }
-        }
-
         function updateModelStats(designId) {
             if (!parsedData) return;
             const { dates, revenues } = getDailyExactEarningsByModel(parsedData.hits, designId);
@@ -248,108 +233,114 @@
             document.getElementById('modelDailyAverage').innerText = `Average daily revenue for last 30 days: ${avg.toFixed(2)} EUR`;
         }
 
+        function showMainStats() {
+            const resultsDiv = document.getElementById('results');
+            const pointsTable = document.getElementById('pointsTable');
+            const exclusiveTable = document.getElementById('exclusiveTable');
+            const standardTable = document.getElementById('standardTable');
+            const averageDays = document.getElementById('averageDays');
+            const chartContainer = document.getElementById('chartContainer');
+            const points = [];
+            const dates = [];
+            parsedData.hits.forEach(item => {
+                points.push(item.pointChange);
+                dates.push(new Date(item.pointTime));
+            });
+            const daysActive = (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24) || 1;
+            const weeksActive = daysActive / 7;
+            const monthsActive = daysActive / 30;
+            const totalPoints = points.reduce((sum, val) => sum + val, 0);
+            const dailyAvg = totalPoints / daysActive;
+            const weeklyAvg = totalPoints / weeksActive;
+            const monthlyAvg = totalPoints / monthsActive;
+            const calcRev = (avgPoints, rate) => avgPoints * rate;
+            const dailyRevenueExclusive = calcRev(dailyAvg, EXCLUSIVE_RATE);
+            const weeklyRevenueExclusive = calcRev(weeklyAvg, EXCLUSIVE_RATE);
+            const monthlyRevenueExclusive = calcRev(monthlyAvg, EXCLUSIVE_RATE);
+            const dailyRevenueStandard = calcRev(dailyAvg, STANDARD_RATE);
+            const weeklyRevenueStandard = calcRev(weeklyAvg, STANDARD_RATE);
+            const monthlyRevenueStandard = calcRev(monthlyAvg, STANDARD_RATE);
+            pointsTable.innerHTML = `
+                <tr><td class="border px-4 py-2">Points per Day</td><td class="border px-4 py-2">${dailyAvg.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Points per Week</td><td class="border px-4 py-2">${weeklyAvg.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Points per Month</td><td class="border px-4 py-2">${monthlyAvg.toFixed(2)}</td></tr>
+            `;
+            averageDays.innerText = `Calculated over ${daysActive.toFixed(0)} days.`;
+            exclusiveTable.innerHTML = `
+                <tr><td class="border px-4 py-2">Daily Revenue (EUR)</td><td class="border px-4 py-2">${dailyRevenueExclusive.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Weekly Revenue (EUR)</td><td class="border px-4 py-2">${weeklyRevenueExclusive.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Monthly Revenue (EUR)</td><td class="border px-4 py-2">${monthlyRevenueExclusive.toFixed(2)}</td></tr>
+            `;
+            standardTable.innerHTML = `
+                <tr><td class="border px-4 py-2">Daily Revenue (EUR)</td><td class="border px-4 py-2">${dailyRevenueStandard.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Weekly Revenue (EUR)</td><td class="border px-4 py-2">${weeklyRevenueStandard.toFixed(2)}</td></tr>
+                <tr><td class="border px-4 py-2">Monthly Revenue (EUR)</td><td class="border px-4 py-2">${monthlyRevenueStandard.toFixed(2)}</td></tr>
+            `;
+            while (chartContainer.firstChild) {
+                chartContainer.removeChild(chartContainer.firstChild);
+            }
+            const dailyData = groupByDay(parsedData.hits);
+            const standardCumulative = cumulativeAverages(dailyData, STANDARD_RATE);
+            const exclusiveCumulative = cumulativeAverages(dailyData, EXCLUSIVE_RATE);
+            const canvas = document.createElement('canvas');
+            chartContainer.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: standardCumulative.map(d => d.dayIndex),
+                    datasets: [
+                        {
+                            label: 'Cumulative Avg (Standard) [EUR]',
+                            data: standardCumulative.map(d => d.value),
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Cumulative Avg (Exclusive) [EUR]',
+                            data: exclusiveCumulative.map(d => d.value),
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Day of Activity'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Revenue'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         document.getElementById('jsonInput').addEventListener('input', () => {
             try {
                 parsedData = JSON.parse(document.getElementById('jsonInput').value);
                 populateModelDropdown(parsedData);
-                const resultsDiv = document.getElementById('results');
-                const pointsTable = document.getElementById('pointsTable');
-                const exclusiveTable = document.getElementById('exclusiveTable');
-                const standardTable = document.getElementById('standardTable');
-                const averageDays = document.getElementById('averageDays');
-                const chartContainer = document.getElementById('chartContainer');
-                const points = [];
-                const dates = [];
-                parsedData.hits.forEach(item => {
-                    points.push(item.pointChange);
-                    dates.push(new Date(item.pointTime));
-                });
-                const daysActive = (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24) || 1;
-                const weeksActive = daysActive / 7;
-                const monthsActive = daysActive / 30;
-                const totalPoints = points.reduce((sum, val) => sum + val, 0);
-                const dailyAvg = totalPoints / daysActive;
-                const weeklyAvg = totalPoints / weeksActive;
-                const monthlyAvg = totalPoints / monthsActive;
-                const calcRev = (avgPoints, rate) => avgPoints * rate;
-                const dailyRevenueExclusive = calcRev(dailyAvg, EXCLUSIVE_RATE);
-                const weeklyRevenueExclusive = calcRev(weeklyAvg, EXCLUSIVE_RATE);
-                const monthlyRevenueExclusive = calcRev(monthlyAvg, EXCLUSIVE_RATE);
-                const dailyRevenueStandard = calcRev(dailyAvg, STANDARD_RATE);
-                const weeklyRevenueStandard = calcRev(weeklyAvg, STANDARD_RATE);
-                const monthlyRevenueStandard = calcRev(monthlyAvg, STANDARD_RATE);
-                pointsTable.innerHTML = `
-                    <tr><td class="border px-4 py-2">Points per Day</td><td class="border px-4 py-2">${dailyAvg.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Points per Week</td><td class="border px-4 py-2">${weeklyAvg.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Points per Month</td><td class="border px-4 py-2">${monthlyAvg.toFixed(2)}</td></tr>
-                `;
-                averageDays.innerText = `Calculated over ${daysActive.toFixed(0)} days.`;
-                exclusiveTable.innerHTML = `
-                    <tr><td class="border px-4 py-2">Daily Revenue (EUR)</td><td class="border px-4 py-2">${dailyRevenueExclusive.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Weekly Revenue (EUR)</td><td class="border px-4 py-2">${weeklyRevenueExclusive.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Monthly Revenue (EUR)</td><td class="border px-4 py-2">${monthlyRevenueExclusive.toFixed(2)}</td></tr>
-                `;
-                standardTable.innerHTML = `
-                    <tr><td class="border px-4 py-2">Daily Revenue (EUR)</td><td class="border px-4 py-2">${dailyRevenueStandard.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Weekly Revenue (EUR)</td><td class="border px-4 py-2">${weeklyRevenueStandard.toFixed(2)}</td></tr>
-                    <tr><td class="border px-4 py-2">Monthly Revenue (EUR)</td><td class="border px-4 py-2">${monthlyRevenueStandard.toFixed(2)}</td></tr>
-                `;
-                resultsDiv.classList.remove('hidden');
-                while (chartContainer.firstChild) {
-                    chartContainer.removeChild(chartContainer.firstChild);
+                showMainStats();
+                if (modelMap.length > 0) {
+                    const topModelId = modelMap[0].designId;
+                    document.getElementById('modelDropdown').value = topModelId;
+                    updateModelStats(topModelId);
                 }
-                const dailyData = groupByDay(parsedData.hits);
-                const standardCumulative = cumulativeAverages(dailyData, STANDARD_RATE);
-                const exclusiveCumulative = cumulativeAverages(dailyData, EXCLUSIVE_RATE);
-                const canvas = document.createElement('canvas');
-                chartContainer.appendChild(canvas);
-                const ctx = canvas.getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: standardCumulative.map(d => d.dayIndex),
-                        datasets: [
-                            {
-                                label: 'Cumulative Avg (Standard) [EUR]',
-                                data: standardCumulative.map(d => d.value),
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Cumulative Avg (Exclusive) [EUR]',
-                                data: exclusiveCumulative.map(d => d.value),
-                                borderWidth: 1
-                            }
-                        ]
-                    },
-                    options: {
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Day of Activity'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Revenue'
-                                }
-                            }
-                        }
-                    }
-                });
             } catch {
                 parsedData = null;
-                document.getElementById('results').classList.add('hidden');
+                document.getElementById('pointsTable').innerHTML = '';
+                document.getElementById('exclusiveTable').innerHTML = '';
+                document.getElementById('standardTable').innerHTML = '';
+                document.getElementById('averageDays').innerText = '';
+                document.getElementById('modelDropdown').innerHTML = '';
+                document.getElementById('modelChartContainer').innerHTML = '';
+                document.getElementById('modelDailyAverage').innerText = '';
             }
-        });
-
-        document.getElementById('mainStatsBtn').addEventListener('click', () => {
-            toggleSections(true);
-        });
-
-        document.getElementById('modelStatsBtn').addEventListener('click', () => {
-            toggleSections(false);
         });
 
         document.getElementById('modelDropdown').addEventListener('change', (e) => {
