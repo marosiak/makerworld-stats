@@ -20,7 +20,7 @@
         <p class="mb-4">Copy your JSON data from <a href="https://makerworld.com/api/v1/point-service/point-bill/my?offset=0&limit=10000000&filter=incomes" target="_blank" class="text-blue-500 underline">this link</a> (CTRL + A, then CTRL + C).</p>
         <textarea id="jsonInput" class="w-full p-2 border border-gray-300 rounded mb-4" rows="10" placeholder="Paste your JSON here..."></textarea>
 
-        <div class="mt-6">
+        <div id="mainStatsSection" class="hidden">
             <h2 class="text-xl font-bold">Main Stats</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mt-4">
                 <div>
@@ -64,7 +64,7 @@
             <div id="chartContainer" class="mt-8"></div>
         </div>
 
-        <div class="mt-8">
+        <div id="modelStatsSection" class="hidden mt-8">
             <h2 class="text-xl font-bold">Per Model Stats</h2>
             <div class="mt-4">
                 <label for="modelDropdown" class="font-semibold">Select a model:</label>
@@ -190,7 +190,6 @@
         }
 
         function updateModelStats(designId) {
-            if (!parsedData) return;
             const { dates, revenues } = getDailyExactEarningsByModel(parsedData.hits, designId);
             const container = document.getElementById('modelChartContainer');
             while (container.firstChild) {
@@ -234,7 +233,6 @@
         }
 
         function showMainStats() {
-            const resultsDiv = document.getElementById('results');
             const pointsTable = document.getElementById('pointsTable');
             const exclusiveTable = document.getElementById('exclusiveTable');
             const standardTable = document.getElementById('standardTable');
@@ -324,6 +322,11 @@
         document.getElementById('jsonInput').addEventListener('input', () => {
             try {
                 parsedData = JSON.parse(document.getElementById('jsonInput').value);
+                if (!parsedData || !parsedData.hits || !parsedData.hits.length) {
+                    throw new Error();
+                }
+                document.getElementById('mainStatsSection').classList.remove('hidden');
+                document.getElementById('modelStatsSection').classList.remove('hidden');
                 populateModelDropdown(parsedData);
                 showMainStats();
                 if (modelMap.length > 0) {
@@ -333,6 +336,8 @@
                 }
             } catch {
                 parsedData = null;
+                document.getElementById('mainStatsSection').classList.add('hidden');
+                document.getElementById('modelStatsSection').classList.add('hidden');
                 document.getElementById('pointsTable').innerHTML = '';
                 document.getElementById('exclusiveTable').innerHTML = '';
                 document.getElementById('standardTable').innerHTML = '';
@@ -344,6 +349,7 @@
         });
 
         document.getElementById('modelDropdown').addEventListener('change', (e) => {
+            if (!parsedData) return;
             const selectedId = parseInt(e.target.value, 10);
             updateModelStats(selectedId);
         });
