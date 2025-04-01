@@ -72,7 +72,6 @@
             <div class="mb-4">
                 <label for="modelDropdown" class="font-semibold">Select a model:</label>
                 <select id="modelDropdown" class="ml-2 p-2 border border-gray-300 rounded"></select>
-                <button id="showModelStatsBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded ml-2">Show Stats</button>
             </div>
             <div id="modelChartContainer" class="mt-6"></div>
             <div class="mt-4">
@@ -110,18 +109,6 @@
                 result.push({ dayIndex: i + 1, value: avg });
             }
             return result;
-        }
-
-        function toggleSections(showMain) {
-            const resultsDiv = document.getElementById('results');
-            const modelStatsDiv = document.getElementById('modelStats');
-            if (showMain) {
-                resultsDiv.classList.remove('hidden');
-                modelStatsDiv.classList.add('hidden');
-            } else {
-                resultsDiv.classList.add('hidden');
-                modelStatsDiv.classList.remove('hidden');
-            }
         }
 
         function filterLast30Days(data) {
@@ -162,6 +149,11 @@
             return { dates, revenues };
         }
 
+        function getLast30DayTotalRevenue(allHits, designId) {
+            const { revenues } = getDailyExactEarningsByModel(allHits, designId);
+            return revenues.reduce((a, b) => a + b, 0);
+        }
+
         function buildModelMap(data) {
             const map = {};
             data.hits.forEach(item => {
@@ -181,23 +173,85 @@
         }
 
         function populateModelDropdown(data) {
-            const dropdown = document.getElementById('modelDropdown');
             modelMap = buildModelMap(data);
-            modelMap.sort((a, b) => a.designTitle.localeCompare(b.designTitle));
-            dropdown.innerHTML = '';
             modelMap.forEach(m => {
+                m.totalRevenue = getLast30DayTotalRevenue(data.hits, m.designId);
+            });
+            modelMap.sort((a, b) => b.totalRevenue - a.totalRevenue);
+            const dropdown = document.getElementById('modelDropdown');
+            dropdown.innerHTML = '';
+            modelMap.forEach((m, index) => {
+                let prefix = '';
+                if (index === 0) prefix = '🏆 ';
+                if (index === 1) prefix = '🥈 ';
+                if (index === 2) prefix = '🥉 ';
                 const option = document.createElement('option');
                 option.value = m.designId;
-                option.text = m.designTitle;
+                option.text = prefix + m.designTitle;
                 dropdown.appendChild(option);
             });
+        }
+
+        function toggleSections(showMain) {
+            const resultsDiv = document.getElementById('results');
+            const modelStatsDiv = document.getElementById('modelStats');
+            if (showMain) {
+                resultsDiv.classList.remove('hidden');
+                modelStatsDiv.classList.add('hidden');
+            } else {
+                resultsDiv.classList.add('hidden');
+                modelStatsDiv.classList.remove('hidden');
+            }
+        }
+
+        function updateModelStats(designId) {
+            if (!parsedData) return;
+            const { dates, revenues } = getDailyExactEarningsByModel(parsedData.hits, designId);
+            const container = document.getElementById('modelChartContainer');
+            while (container.firstChild) {
+                container.removeChild(container.firstChild);
+            }
+            const canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Daily Exact Revenue [EUR]',
+                            data: revenues,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Revenue'
+                            }
+                        }
+                    }
+                }
+            });
+            const sum = revenues.reduce((a, b) => a + b, 0);
+            const avg = revenues.length ? sum / revenues.length : 0;
+            document.getElementById('modelDailyAverage').innerText = `Average daily revenue for last 30 days: ${avg.toFixed(2)} EUR`;
         }
 
         document.getElementById('jsonInput').addEventListener('input', () => {
             try {
                 parsedData = JSON.parse(document.getElementById('jsonInput').value);
                 populateModelDropdown(parsedData);
-                const data = parsedData;
                 const resultsDiv = document.getElementById('results');
                 const pointsTable = document.getElementById('pointsTable');
                 const exclusiveTable = document.getElementById('exclusiveTable');
@@ -206,7 +260,7 @@
                 const chartContainer = document.getElementById('chartContainer');
                 const points = [];
                 const dates = [];
-                data.hits.forEach(item => {
+                parsedData.hits.forEach(item => {
                     points.push(item.pointChange);
                     dates.push(new Date(item.pointTime));
                 });
@@ -244,7 +298,7 @@
                 while (chartContainer.firstChild) {
                     chartContainer.removeChild(chartContainer.firstChild);
                 }
-                const dailyData = groupByDay(data.hits);
+                const dailyData = groupByDay(parsedData.hits);
                 const standardCumulative = cumulativeAverages(dailyData, STANDARD_RATE);
                 const exclusiveCumulative = cumulativeAverages(dailyData, EXCLUSIVE_RATE);
                 const canvas = document.createElement('canvas');
@@ -298,50 +352,9 @@
             toggleSections(false);
         });
 
-        document.getElementById('showModelStatsBtn').addEventListener('click', () => {
-            if (!parsedData) return;
-            const dropdown = document.getElementById('modelDropdown');
-            const selectedId = parseInt(dropdown.value, 10);
-            const { dates, revenues } = getDailyExactEarningsByModel(parsedData.hits, selectedId);
-            const container = document.getElementById('modelChartContainer');
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
-            const canvas = document.createElement('canvas');
-            container.appendChild(canvas);
-            const ctx = canvas.getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [
-                        {
-                            label: 'Daily Exact Revenue [EUR]',
-                            data: revenues,
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Revenue'
-                            }
-                        }
-                    }
-                }
-            });
-            const sum = revenues.reduce((a, b) => a + b, 0);
-            const avg = revenues.length ? sum / revenues.length : 0;
-            document.getElementById('modelDailyAverage').innerText = `Average daily revenue for last 30 days: ${avg.toFixed(2)} EUR`;
+        document.getElementById('modelDropdown').addEventListener('change', (e) => {
+            const selectedId = parseInt(e.target.value, 10);
+            updateModelStats(selectedId);
         });
     </script>
 </body>
